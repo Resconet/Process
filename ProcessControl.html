@@ -18,6 +18,7 @@
         var readOnly = false;
         var finalStep;
         var entityMeta;
+        var hiddenItem;
         // Elements 
         var selectedStepElement;
         var descElement;
@@ -135,10 +136,17 @@
 			}
 			if (item) {
 				return item.isEnabled;
-			}
+            }
+            // If no detailItem for selected field is present, add hidden item with same name to make sure onchange still works
+            if(detailViews && detailViews.length > 0){
+                hiddenItem = new MobileCRM.UI.DetailViewItems.LinkItem(processControlConfiguration.field, processControlConfiguration.field, MobileCRM.UI.DetailViewItems.DropDownFormat.StringList);
+                hiddenItem.value = "0";
+                hiddenItem.isVisible = false;
+			    detailViews[0].insertItem(hiddenItem, -1); // Place item as the last one.
+            }                
 			return true;
-		}
-
+        }
+        
         function setMode(isReadonly){
             readOnly = isReadonly;
         }
@@ -256,12 +264,10 @@
             if(!readOnly){ // Disable complete button in readonly mode
                 btnElement.classList.remove("disabled");
                 btnElement.className += " active";
-                if(isActive(selectedStepElement) || selectedStepElement.id === "finalStep"){
-                    btnElement.innerHTML = buttonCompleteLabel;                    
-                }
-                else{
-                    btnElement.innerHTML = buttonCurrentLabel;
-                }
+                if(isActive(selectedStepElement) || selectedStepElement.id === "finalStep")
+                    btnElement.innerHTML = buttonCompleteLabel;                                   
+                else
+                    btnElement.innerHTML = buttonCurrentLabel;       
             }
         }
 
@@ -317,8 +323,12 @@
         function setStepOnEntity(value){
             MobileCRM.UI.EntityForm.requestObject(
                 function (entityForm) {
-                    entityForm.entity.properties[processControlConfiguration.field] = value
-                    MobileCRM.UI.EntityForm.save();
+                    entityForm.entity.properties[processControlConfiguration.field] = value;
+                    var detailView = entityForm.getDetailView("General");
+                    // Set value to hidden detailitem to trigger onchange with selected value
+                    if (hiddenItem)
+                        hiddenItem.value = value;
+                    loadStep(value);     
                 },
                 function (err) { MobileCRM.bridge.alert(err); }
             );   
