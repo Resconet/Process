@@ -107,8 +107,10 @@
 				var entity = entityMeta.getEntity(entityForm.entity.entityName);
                 if (entity) {
                     var prop = entity.getProperty(processControlConfiguration.field);
-                    if (!prop)
+                    if (!prop){
+                        MobileCRM.bridge.alert(MobileCRM.Localization.getTextOrDefault("Process.Button.DisabledProperty", "Process field is disabled, steps cannot be loaded."));
                         continueWith(true);
+                    }                       
                     else if (prop.permission === 2) //can create
                         continueWith(true);
                     else if ((prop.permission & 2) == 0)
