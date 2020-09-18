@@ -179,6 +179,7 @@
                 finalStep = new FinalStep(finalStepLabel, stepIndex, finalSteps);
                 finalStep.shortDescription = finalStepDescription;
                 stepContainer.appendChild(htmlToElements(finalStep.createFinalStepHtml()));
+                finalStep.finalStepLabelElement = document.getElementById("finalStepLabel");
             }         
             loadCurrentStepFromEntity();
         }   
@@ -225,9 +226,14 @@
                 finalStep.openMessageBoxWithOptions();
             }
             else if(selectedStepElement && isActive(selectedStepElement)){
+                if(finalStep)
+                    finalStep.resetFinalStepLabel();
                 setArrowCompleted(selectedStepElement);
             }
             else if(selectedStepElement){
+                if(finalStep)
+                    finalStep.resetFinalStepLabel();
+                finalStep.resetFinalStepLabel();
                 setArrowActive(selectedStepElement);
             }
         }
@@ -573,13 +579,14 @@
                 this.index = index;
                 this.steps = steps; // ProcessStep[] where isFinal === true
                 this.id = "finalStep"; // Constant - there will be always only one step
-                this.cancelButtonLabel = MobileCRM.Localization.getTextOrDefault("Process.Button.Cancel", "Cancel");
+                this.cancelButtonLabel = MobileCRM.Localization.getTextOrDefault("Process.Button.Cancel", "Cancel");      
+                this.finalStepLabelElement = null;          
             }
 
             createFinalStepHtml(){
                 var arrowHtml = "<li id="+ this.id +" class=\"future\" onclick=\"arrowClicked(this.id)\">" +
                 "<i class=\"steps__index\">"+ this.index +"</i>"+
-                "<span class=\"steps__text\">" +
+                "<span id=\"finalStepLabel\" class=\"steps__text\">" +
                 this.label
                 "</span>" +
                 "</li>";
@@ -608,11 +615,21 @@
                     var step = this.steps.find(s => s.label === button);
                     setStepOnEntity(step.textValue);
                     var element = document.getElementById(this.id)
-                    setArrowCssClass(element, completedState);               
+                    setArrowCssClass(element, completedState); 
+                    this.setFinalStepLabel(button);
                 }
                 else if(failCallback)
                     failCallback();               
                 return;
+            }
+
+            resetFinalStepLabel(){
+                if(this.finalStepLabelElement && this.finalStepLabelElement.innerHTML !== this.label)
+                    this.finalStepLabelElement.innerText = this.label;
+            }
+
+            setFinalStepLabel(label){
+                this.finalStepLabelElement.innerText = label;                           
             }
         }
         
