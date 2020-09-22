@@ -69,16 +69,17 @@ body{
     }
   }
   &__description {
-    height: 45px;
-    //width: 100%;
+    height: 25px;
     margin-left: 16px;
     font-weight: 400;
     font-size: 14px;
     color: #717171;
 
-    display: flex;
     align-items: center;
     justify-content: flex-start;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
     
     &-icon {
         border-radius: 50%;
@@ -86,6 +87,7 @@ body{
         width: 24px;
         height: 24px;
         margin: 7px;
+        margin-top: 0;
 
         background-image: url('./img/asterix-dark.svg');
         background-repeat: no-repeat;
