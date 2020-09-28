@@ -68,6 +68,12 @@ body{
         opacity: .9;
     }
   }
+
+  &__descriptionLine {
+    display: inline-flex;
+    overflow: hidden;
+  }
+
   &__description {
     height: 25px;
     margin-left: 16px;
@@ -80,8 +86,11 @@ body{
     text-overflow: ellipsis;
     overflow: hidden;
     white-space: nowrap;
+    margin-top: auto;
+    margin-bottom: auto;
     
     &-icon {
+        flex-shrink: 0;
         border-radius: 50%;
         border: 1px gray dashed;
         width: 24px;
