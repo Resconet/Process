@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title></title>
 	<meta charset="utf-8">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-	<meta name='viewport' content='initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no'>
+    <meta name='viewport' content='initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no'>
+    <title></title>
     <script src="../JSBridge.js"></script>
     <link rel="stylesheet" type="text/css" href="processControl.css">
 </head>
@@ -17,6 +17,8 @@
         var selectedView = "General";
         var readOnly = false;
         var finalStep;
+        var entityMeta;
+        var hiddenItem;
         // Elements 
         var selectedStepElement;
         var descElement;
@@ -33,8 +35,9 @@
             var urlParams = new URLSearchParams(window.location.search);
             var processControlName = urlParams.get("name");           
             initElements();
-            MobileCRM.bridge.command("getProcessControlConfiguration", processControlName, getValidSteps, reportError, null);       
+            MobileCRM.bridge.command("getProcessControlConfiguration", processControlName, validateConfigAndInitialize, reportError, null);       
             initOnChangeHandlers();
+            MobileCRM.bridge.enableZoom(false);
         }
 
         function initElements(){
@@ -47,6 +50,27 @@
             buttonCompleteLabel = MobileCRM.Localization.getTextOrDefault("Process.Button.Completed", "Mark as Completed");
             btnElement.innerHTML = buttonCurrentLabel;
         }
+
+        function validateConfigAndInitialize(jsonConfig){
+            loadColorSettings();     
+            processControlConfiguration = jsonConfig;
+            processSteps = decodeStepDescriptions(processControlConfiguration.steps);
+            var checkStepsFunction = checkOptionSetSteps;
+            MobileCRM.Metadata.requestObject(metaData => {	
+                entityMeta = metaData;
+                var entity = entityMeta.getEntity(processControlConfiguration.entity);
+                if (entity) {
+                    var prop = entity.getProperty(processControlConfiguration.field);
+                    if(prop && prop.type === 16)
+                    checkStepsFunction = checkStringlistSteps;                        	
+                }
+                checkStepsFunction(setUpProcessArrows);
+            }, 
+            error => {
+                MobileCRM.bridge.alert(error);
+                checkStepsFunction(setUpProcessArrows);
+            }, [this]);                 
+        }    
 
         function initOnChangeHandlers(){
             MobileCRM.UI.EntityForm.onChange(
@@ -81,50 +105,23 @@
 				continueWith(true);
 			}	
 			else {
-				MobileCRM.Metadata.requestObject(metaData => {		
-                    var entity = metaData.getEntity(entityForm.entity.entityName);
-                    if (entity) {
-                        var prop = entity.getProperty(processControlConfiguration.field);
-                        if (!prop)
-                            continueWith(true);
-                        else if (prop.permission === 2) //can create
-                            continueWith(true);
-                        else if ((prop.permission & 2) == 0)
-                            continueWith(true);
-                        else
-                            continueWith(false);
-                    }
-				}, MobileCRM.bridge.alert, [this]);
+				var entity = entityMeta.getEntity(entityForm.entity.entityName);
+                if (entity) {
+                    var prop = entity.getProperty(processControlConfiguration.field);
+                    if (!prop){
+                        MobileCRM.bridge.alert(MobileCRM.Localization.getTextOrDefault("Process.Button.DisabledProperty", "Process field is disabled, steps cannot be loaded."));
+                        continueWith(true);
+                    }                       
+                    else if (prop.permission === 2) //can create
+                        continueWith(true);
+                    else if ((prop.permission & 2) == 0)
+                        continueWith(true);
+                    else
+                        continueWith(false);
+                }
 			}
         }
                 
-                
-        function getValidSteps(jsonConfig){
-            processControlConfiguration = jsonConfig;
-            var validSteps = [];
-            MobileCRM.Metadata.getOptionSetValues(
-                processControlConfiguration.entity,
-                processControlConfiguration.field,
-                function (optionSetValues) {
-                    if(optionSetValues && optionSetValues.length > 0){
-                        /// <param name="optionSetValues" type="Object"></param>                    
-                        var optionSetStringValues = Object.values(optionSetValues).map(v => v + "");
-                        for(var step of processControlConfiguration.steps){
-                            if(optionSetStringValues.indexOf(step.value) > -1)
-                                validSteps.push(step);
-                        }
-                        processControlConfiguration.steps = validSteps;
-                    }               
-                    setUpProcessArrows();
-                }, 
-                (error) => {
-                    MobileCRM.bridge.alert(error);
-                    setUpProcessArrows();
-                }, 
-                null
-            );
-        }
-
         function isFieldEditable(entityForm) {
 			var detailViews = entityForm.detailViews;
 			var item;
@@ -142,17 +139,24 @@
 			}
 			if (item) {
 				return item.isEnabled;
-			}
+            }
+            // If no detailItem for selected field is present, add hidden item with same name to make sure onchange still works
+            if(detailViews && detailViews.length > 0){
+                hiddenItem = new MobileCRM.UI.DetailViewItems.LinkItem(processControlConfiguration.field, processControlConfiguration.field, MobileCRM.UI.DetailViewItems.DropDownFormat.StringList);
+                hiddenItem.value = "0";
+                hiddenItem.isVisible = false;
+			    detailViews[0].insertItem(hiddenItem, -1); // Place item as the last one.
+            }                
 			return true;
-		}
-
+        }
+        
         function setMode(isReadonly){
             readOnly = isReadonly;
         }
 
-        function setUpProcessArrows(){      
-            loadColorSettings();            
-            processSteps = decodeStepDescriptions(processControlConfiguration.steps);
+        
+
+        function setUpProcessArrows(){             
             stepContainer = document.getElementById("stepContainer");
             var finalSteps = [];
             var stepIndex = 1;
@@ -176,6 +180,7 @@
                 finalStep = new FinalStep(finalStepLabel, stepIndex, finalSteps);
                 finalStep.shortDescription = finalStepDescription;
                 stepContainer.appendChild(htmlToElements(finalStep.createFinalStepHtml()));
+                finalStep.finalStepLabelElement = document.getElementById("finalStepLabel");
             }         
             loadCurrentStepFromEntity();
         }   
@@ -222,9 +227,14 @@
                 finalStep.openMessageBoxWithOptions();
             }
             else if(selectedStepElement && isActive(selectedStepElement)){
+                if(finalStep)
+                    finalStep.resetFinalStepLabel();
                 setArrowCompleted(selectedStepElement);
             }
             else if(selectedStepElement){
+                if(finalStep)
+                    finalStep.resetFinalStepLabel();
+                finalStep.resetFinalStepLabel();
                 setArrowActive(selectedStepElement);
             }
         }
@@ -263,12 +273,10 @@
             if(!readOnly){ // Disable complete button in readonly mode
                 btnElement.classList.remove("disabled");
                 btnElement.className += " active";
-                if(isActive(selectedStepElement) || selectedStepElement.id === "finalStep"){
-                    btnElement.innerHTML = buttonCompleteLabel;                    
-                }
-                else{
-                    btnElement.innerHTML = buttonCurrentLabel;
-                }
+                if(isActive(selectedStepElement) || selectedStepElement.id === "finalStep")
+                    btnElement.innerHTML = buttonCompleteLabel;                                   
+                else
+                    btnElement.innerHTML = buttonCurrentLabel;       
             }
         }
 
@@ -324,8 +332,12 @@
         function setStepOnEntity(value){
             MobileCRM.UI.EntityForm.requestObject(
                 function (entityForm) {
-                    entityForm.entity.properties[processControlConfiguration.field] = value
-                    MobileCRM.UI.EntityForm.save();
+                    entityForm.entity.properties[processControlConfiguration.field] = value;
+                    var detailView = entityForm.getDetailView("General");
+                    // Set value to hidden detailitem to trigger onchange with selected value
+                    if (hiddenItem)
+                        hiddenItem.value = value;
+                    loadStep(value);     
                 },
                 function (err) { MobileCRM.bridge.alert(err); }
             );   
@@ -343,10 +355,8 @@
         }
    
         function loadStep(stepValue){
-            if(!stepValue){
-                setNextElementsToState(-1, futureState);
-                setSelectedArrowState(document.getElementById(processSteps[0].id));
-            }
+            if(!stepValue)
+                resetProcessComponent();
             else{
                 var step = processSteps.find(s => s.textValue === stepValue + "");
                 if(step && !step.isFinal){
@@ -367,11 +377,19 @@
                         evaluateArrows();
                     }
                 }
+                else if(stepValue === -1)   // Default option (empty) for Dynamics, not really a step
+                    resetProcessComponent();
                 else{
                     var errorMessage = MobileCRM.Localization.getTextOrDefault("Process.Button.UnknownValue", "Value is not defined as process step value.");
                     MobileCRM.bridge.alert(stepValue + ": " + errorMessage); 
+                    resetProcessComponent();
                 }                               
             }       
+        }
+
+        function resetProcessComponent(){
+            setNextElementsToState(-1, futureState);
+            setSelectedArrowState(document.getElementById(processSteps[0].id));
         }
 
         function loadColorSettings(){
@@ -456,6 +474,64 @@
 
         // Utils
 
+        /**
+         * For stringLists only, check whether configured step values still exist on entity.
+         * If steps cannot be checked, all steps will be used.
+         * @param {function} callback - after checking the stepValues.
+         */
+         function checkStringlistSteps(callback){
+            MobileCRM.Localization.initialize(
+                function (Localization) {
+                    var entity = processControlConfiguration.entity;
+                    var field = processControlConfiguration.field;
+                    var options = MobileCRM.Metadata.getStringListOptions(entity, field);
+                    if(options){
+                        var validSteps = [];
+                        for(var step of processSteps){                      
+                            if(options[entity + "." + field + "." + step.textValue])
+                                validSteps.push(step);      
+                        }
+                        processSteps = validSteps;
+                    }                  
+                    callback();
+                }, 
+                (error) => {
+                    MobileCRM.bridge.alert(error);
+                    callback();
+                }, 
+                null
+            );
+        }
+
+        /**
+         * For for optionsteps only, check whether configured step values still exist on entity.
+         * If steps cannot be checked, all steps will be used.
+         * @param {function} callback - after checking the stepValues.
+         */
+        function checkOptionSetSteps(callback){         
+            var validSteps = [];
+            MobileCRM.Metadata.getOptionSetValues(
+                processControlConfiguration.entity,
+                processControlConfiguration.field,
+                function (optionSetValues) {
+                    if(optionSetValues && optionSetValues.length > 0){                 
+                        var optionSetStringValues = Object.values(optionSetValues).map(v => v + "");
+                        for(var step of processSteps){
+                            if(optionSetStringValues.indexOf(step.textValue) > -1)
+                                validSteps.push(step);
+                        }
+                        processSteps = validSteps;
+                    }               
+                    callback();
+                }, 
+                (error) => {
+                    MobileCRM.bridge.alert(error);
+                    callback();
+                }, 
+                null
+            );
+        }
+
         function makeSafeForCSS(name) {
             return name.replace(/[^a-z0-9]/g, function(s) {
                 var c = s.charCodeAt(0);
@@ -504,13 +580,14 @@
                 this.index = index;
                 this.steps = steps; // ProcessStep[] where isFinal === true
                 this.id = "finalStep"; // Constant - there will be always only one step
-                this.cancelButtonLabel = MobileCRM.Localization.getTextOrDefault("Process.Button.Cancel", "Cancel");
+                this.cancelButtonLabel = MobileCRM.Localization.getTextOrDefault("Process.Button.Cancel", "Cancel");      
+                this.finalStepLabelElement = null;          
             }
 
             createFinalStepHtml(){
                 var arrowHtml = "<li id="+ this.id +" class=\"future\" onclick=\"arrowClicked(this.id)\">" +
                 "<i class=\"steps__index\">"+ this.index +"</i>"+
-                "<span class=\"steps__text\">" +
+                "<span id=\"finalStepLabel\" class=\"steps__text\">" +
                 this.label
                 "</span>" +
                 "</li>";
@@ -539,11 +616,21 @@
                     var step = this.steps.find(s => s.label === button);
                     setStepOnEntity(step.textValue);
                     var element = document.getElementById(this.id)
-                    setArrowCssClass(element, completedState);               
+                    setArrowCssClass(element, completedState); 
+                    this.setFinalStepLabel(button);
                 }
                 else if(failCallback)
                     failCallback();               
                 return;
+            }
+
+            resetFinalStepLabel(){
+                if(this.finalStepLabelElement && this.finalStepLabelElement.innerHTML !== this.label)
+                    this.finalStepLabelElement.innerText = this.label;
+            }
+
+            setFinalStepLabel(label){
+                this.finalStepLabelElement.innerText = label;                           
             }
         }
         
@@ -554,8 +641,10 @@
         <div class="scroll-arrow scroll-arrow--right" onclick="moveRight()"></div>
     </div>   
     <div class="stepProperties">
-        <i id="descriptionIcon" class="stepProperties__description-icon"></i>
-        <div id="descriptionContainer" class="stepProperties__description"></div>
+        <div class="stepProperties__descriptionLine">
+            <i id="descriptionIcon" class="stepProperties__description-icon"></i>
+            <div id="descriptionContainer" class="stepProperties__description"></div>
+        </div>    
         <button id="completeBtn" class="stepProperties__select-button disabled" onclick="buttonClicked()"></button>
     </div>
 </body>
