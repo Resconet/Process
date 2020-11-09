@@ -35,8 +35,7 @@
             var urlParams = new URLSearchParams(window.location.search);
             var processControlName = urlParams.get("name");           
             initElements();
-            MobileCRM.bridge.command("getProcessControlConfiguration", processControlName, validateConfigAndInitialize, reportError, null);       
-            initOnChangeHandlers();
+            MobileCRM.bridge.command("getProcessControlConfiguration", processControlName, validateConfigAndInitialize, handleInitError, null);       
             MobileCRM.bridge.enableZoom(false);
         }
 
@@ -51,9 +50,10 @@
             btnElement.innerHTML = buttonCurrentLabel;
         }
 
-        function validateConfigAndInitialize(jsonConfig){
+        function validateConfigAndInitialize(jsonConfig){           
             loadColorSettings();     
             processControlConfiguration = jsonConfig;
+            initOnChangeHandlers();
             processSteps = decodeStepDescriptions(processControlConfiguration.steps);
             var checkStepsFunction = checkOptionSetSteps;
             MobileCRM.Metadata.requestObject(metaData => {	
@@ -153,9 +153,9 @@
         function setMode(isReadonly){
             readOnly = isReadonly;
         }
-
         
 
+        
         function setUpProcessArrows(){             
             stepContainer = document.getElementById("stepContainer");
             var finalSteps = [];
@@ -459,16 +459,17 @@
 
         function evaluateArrows(){
             var w = window.innerWidth;
-            var container = stepContainer.offsetWidth;
-            if(container < w){
-                scrollArrows[0].style.display = "none";
-                scrollArrows[1].style.display = "none";
+            if(stepContainer){
+                var container = stepContainer.offsetWidth;
+                if(container < w){
+                    scrollArrows[0].style.display = "none";
+                    scrollArrows[1].style.display = "none";
+                }
+                else{
+                    scrollArrows[0].style.display = "block";
+                    scrollArrows[1].style.display = "block";
+                }
             }
-            else{
-                scrollArrows[0].style.display = "block";
-                scrollArrows[1].style.display = "block";
-            }
-
         }
 
         // Utils
@@ -540,8 +541,17 @@
             });
         }
 
+        function handleInitError(error){
+            reportError(error);
+            hideProcess();
+        }
+
         function reportError(error){
             MobileCRM.bridge.alert(error);
+        }
+
+        function hideProcess(){
+            document.getElementsByTagName("BODY")[0].style.display = "none";
         }
 
         class ProcessStep{
