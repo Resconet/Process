@@ -142,7 +142,7 @@
             }
             // If no detailItem for selected field is present, add hidden item with same name to make sure onchange still works
             if(detailViews && detailViews.length > 0){
-                hiddenItem = new MobileCRM.UI.DetailViewItems.LinkItem(processControlConfiguration.field, processControlConfiguration.field, MobileCRM.UI.DetailViewItems.DropDownFormat.StringList);
+                hiddenItem = new MobileCRM.UI.DetailViewItems.ComboBoxItem(processControlConfiguration.field, processControlConfiguration.field);
                 hiddenItem.value = "0";
                 hiddenItem.isVisible = false;
 			    detailViews[0].insertItem(hiddenItem, -1); // Place item as the last one.
