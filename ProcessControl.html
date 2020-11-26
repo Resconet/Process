@@ -239,7 +239,7 @@
         }
 
         function setSelectedArrowState(element){
-            element.scrollIntoView(true);    
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });    
             var oldSelectedElement = selectedStepElement;           
             if(selectedStepElement){
                 // Deselect
@@ -422,7 +422,7 @@
         function setArrowCssClass(element, state, scroll = false){
             if(element){
                 if(scroll)
-                    element.scrollIntoView(true);
+                    element.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
                 element.className = state;  
             }                    
         }
