@@ -1,4 +1,5 @@
 
+$arrow-back-uri: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMC45MTkiIGhlaWdodD0iMjAuMzM4IiB2aWV3Qm94PSIwIDAgMTAuOTE5IDIwLjMzOCI+CiAgPGcgaWQ9Ikdyb3VwXzgzIiBkYXRhLW5hbWU9Ikdyb3VwIDgzIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtODUxLjc5OSAtMTYxLjMwMSkiPgogICAgPHBhdGggaWQ9ImJhY2siIGQ9Ik0tNzEwLjY0LTU5NTAuOTA4bDkuMTA4LDkuMTA4LTkuMTA4LDkuMTA4IiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgxNTYzLjUgNjExMy4yNykiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDwvZz4KPC9zdmc+Cg==";
 .scroll-arrow {
         z-index: 10;
         position: absolute;
@@ -9,7 +10,7 @@
         background-color: #717171;
         cursor: pointer;
 
-        background-image: url('./img/icon-back.svg');
+        background-image: url($arrow-back-uri);
         background-repeat: no-repeat;
         background-position: center;
         background-size: 31%;
